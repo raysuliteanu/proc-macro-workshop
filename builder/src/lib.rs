@@ -1,5 +1,6 @@
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{quote, quote_spanned};
+use syn::spanned::Spanned;
 use syn::{parse_macro_input, Data, DeriveInput, Field};
 
 #[proc_macro_derive(Builder)]
@@ -14,7 +15,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let init_builder_fields = fields.iter().map(|field| {
         let ident = field.ident.as_ref().unwrap();
-        quote! {
+        quote_spanned! {field.span()=>
             #ident: None
         }
     });
@@ -45,14 +46,15 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let build_fn_setters = fields.iter().map(|field| {
         let ident = field.ident.as_ref().unwrap();
-        quote! {
+        // TODO: handle optional fields in derive target
+        quote_spanned! { field.span() =>
             let #ident = self.#ident.take().unwrap();
         }
     });
 
     let build_fn_fields = fields.iter().map(|field| {
         let ident = field.ident.as_ref().unwrap();
-        quote! {
+        quote_spanned! { field.span() =>
             #ident
         }
     });
@@ -71,12 +73,12 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         let ident = field.ident.as_ref().unwrap();
         let ty = &field.ty;
 
-        quote! {
+        quote_spanned! { field.span() =>
             fn #ident(&mut self, #ident: #ty) -> &mut Self {
                 self.#ident = Some(#ident);
                 self
-            }
-        }
+
+        }}
     });
 
     let ts = quote! {
@@ -90,8 +92,6 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             #(#builder_fns)*
         }
     };
-
-    eprintln!("TOKENS: {:#?}", ts);
 
     proc_macro::TokenStream::from(ts)
 }
